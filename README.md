@@ -14,6 +14,8 @@ short_description: Turkish find-and-guide agent for blind and low-vision users
 
 **A Turkish-language find-and-guide agent for blind and low-vision people**, built for the Meta Global AI Developer Hackathon (Indie track, theme: *Build for Your World*).
 
+**Live demo:** https://gozum-delta.vercel.app (open on a phone; camera and microphone permission required)
+
 > Gözüm is a wayfinding aid. It does **not** replace a white cane, a guide dog or a person, and it never tells you a path is safe.
 
 ## What it does
