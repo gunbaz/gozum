@@ -1,3 +1,15 @@
+---
+title: Gözüm
+emoji: 👁️
+colorFrom: yellow
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Turkish find-and-guide agent for blind and low-vision users
+---
+
 # Gözüm
 
 **A Turkish-language find-and-guide agent for blind and low-vision people**, built for the Meta Global AI Developer Hackathon (Indie track, theme: *Build for Your World*).
