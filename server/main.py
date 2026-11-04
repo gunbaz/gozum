@@ -17,23 +17,23 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-from .agent import Agent, SessionStore  # noqa: E402  (needs env loaded first)
+from .agent import Agent, Session  # noqa: E402  (needs env loaded first)
 from .meta_client import MetaClient, Settings  # noqa: E402
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+# On Vercel, public/ is served by the CDN; locally and in Docker, by FastAPI.
+WEB_DIR = Path(__file__).resolve().parent.parent / "public"
 MAX_FRAME_BYTES = 3 * 1024 * 1024
-MAX_AUDIO_BYTES = 5 * 1024 * 1024
+MAX_AUDIO_BYTES = 4 * 1024 * 1024
 
 settings = Settings.from_env()
 client = MetaClient(settings)
 agent = Agent(client)
-sessions = SessionStore()
 
 app = FastAPI(title="Gözüm")
 
 
 class StepRequest(BaseModel):
-    session_id: str | None = None
+    state: dict | None = None  # agent state returned by the previous step
     goal: str | None = None
     user_reply: str | None = None
     frame: str  # JPEG as a data URL or bare base64
@@ -70,12 +70,7 @@ async def transcribe(audio: UploadFile = File(...)) -> dict:
 
 @app.post("/api/step")
 def step(req: StepRequest) -> dict:
-    session = sessions.get_or_create(req.session_id)
-    if req.goal:
-        session.goal = req.goal.strip()
-        session.steps = 0
-        session.history.clear()
-        session.awaiting_reply = False
+    session = Session(goal=req.goal.strip()) if req.goal else Session.from_dict(req.state)
     if req.user_reply:
         session.user_reply = req.user_reply.strip()
     if not session.goal:
@@ -87,7 +82,7 @@ def step(req: StepRequest) -> dict:
     except Exception as exc:
         raise HTTPException(502, f"agent step failed: {type(exc).__name__}")
     return {
-        "session_id": session.id,
+        "state": session.to_dict(),
         "speak": result.speak,
         "done": result.done,
         "action": result.action,
@@ -98,4 +93,5 @@ def step(req: StepRequest) -> dict:
     }
 
 
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+if WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

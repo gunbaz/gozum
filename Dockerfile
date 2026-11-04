@@ -10,7 +10,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY server ./server
-COPY web ./web
+COPY public ./public
 
 ENV PORT=7860
 EXPOSE 7860

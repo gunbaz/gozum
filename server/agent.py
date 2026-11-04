@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 import time
-import uuid
 from dataclasses import dataclass, field
 
 from . import geometry
@@ -66,13 +65,35 @@ def scrub(text: str) -> str:
 
 @dataclass
 class Session:
-    id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    """Agent state for one goal. The client carries it between steps, so the
+    server stays stateless and works on serverless hosts."""
+
     goal: str = ""
     steps: int = 0
     awaiting_reply: bool = False
     user_reply: str = ""
     history: list[str] = field(default_factory=list)
     last_seen: dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "goal": self.goal,
+            "steps": self.steps,
+            "awaiting_reply": self.awaiting_reply,
+            "history": self.history[-8:],
+            "last_seen": self.last_seen,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict | None) -> "Session":
+        data = data or {}
+        return cls(
+            goal=str(data.get("goal", ""))[:300],
+            steps=min(int(data.get("steps", 0)), MAX_STEPS + 1),
+            awaiting_reply=bool(data.get("awaiting_reply", False)),
+            history=[str(h)[:300] for h in data.get("history", [])][-8:],
+            last_seen={str(k)[:60]: str(v)[:20] for k, v in dict(data.get("last_seen", {})).items()},
+        )
 
 
 @dataclass
@@ -169,21 +190,6 @@ class Agent:
         session.awaiting_reply = awaiting
         session.history.append(f"{action}: {speak}")
         return StepResult(speak, done, action, box, trace, awaiting)
-
-
-class SessionStore:
-    def __init__(self, limit: int = 200):
-        self._sessions: dict[str, Session] = {}
-        self._limit = limit
-
-    def get_or_create(self, session_id: str | None) -> Session:
-        if session_id and session_id in self._sessions:
-            return self._sessions[session_id]
-        if len(self._sessions) >= self._limit:
-            self._sessions.pop(next(iter(self._sessions)))
-        session = Session()
-        self._sessions[session.id] = session
-        return session
 
 
 def _ms(start: float) -> int:

@@ -13,7 +13,7 @@ const talk = $("talk");
 
 const state = {
   started: false,
-  sessionId: null,
+  agentState: null, // returned by the server each step and sent back with the next
   pendingGoal: null,
   awaitingReply: false,
   running: false,
@@ -102,7 +102,7 @@ function stopLoop() {
 
 async function tick(reply) {
   if (!state.running) return;
-  const body = { session_id: state.sessionId, frame: captureFrame() };
+  const body = { state: state.agentState, frame: captureFrame() };
   if (state.pendingGoal) {
     body.goal = state.pendingGoal;
     state.pendingGoal = null;
@@ -125,7 +125,7 @@ async function tick(reply) {
     return;
   }
 
-  state.sessionId = data.session_id;
+  state.agentState = data.state;
   data.trace.forEach(logTrace);
   drawBox(data.box);
   say(data.speak);

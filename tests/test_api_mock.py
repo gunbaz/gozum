@@ -29,23 +29,28 @@ def test_health_reports_mock():
 def test_find_door_loop_with_clarification():
     r = client.post("/api/step", json={"goal": "Çıkış kapısını bul", "frame": _frame()}).json()
     assert r["action"] == "locate" and r["box"] is None and not r["done"]
-    sid = r["session_id"]
 
-    r = client.post("/api/step", json={"session_id": sid, "frame": _frame()}).json()
+    r = client.post("/api/step", json={"state": r["state"], "frame": _frame()}).json()
     assert r["action"] == "ask_user" and r["awaiting_reply"]
 
-    r = client.post("/api/step", json={"session_id": sid, "user_reply": "sağdaki", "frame": _frame()}).json()
+    r = client.post("/api/step", json={"state": r["state"], "user_reply": "sağdaki", "frame": _frame()}).json()
     assert "saat 1" in r["speak"] and not r["done"]
+    assert r["state"]["last_seen"] == {"kapı": "saat 1"}
 
-    r = client.post("/api/step", json={"session_id": sid, "frame": _frame()}).json()
+    r = client.post("/api/step", json={"state": r["state"], "frame": _frame()}).json()
     assert "saat 12" in r["speak"] and r["done"]
     assert any(t["tool"] == "plan" for t in r["trace"])
 
 
+def test_tampered_state_is_bounded():
+    state = {"goal": "kapı", "steps": 10_000, "history": ["x" * 5000] * 50}
+    r = client.post("/api/step", json={"state": state, "frame": _frame()}).json()
+    assert r["action"] == "give_up" and r["done"]
+
+
 def test_read_sign_uses_crop_tool():
     r = client.post("/api/step", json={"goal": "Otobüsün numarasını oku", "frame": _frame()}).json()
-    sid = r["session_id"]
-    r = client.post("/api/step", json={"session_id": sid, "frame": _frame()}).json()
+    r = client.post("/api/step", json={"state": r["state"], "frame": _frame()}).json()
     assert r["action"] == "read_text" and r["done"]
     assert any(t["tool"] == "read_text" for t in r["trace"])
 
