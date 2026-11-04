@@ -22,6 +22,7 @@ class Settings:
     spark_model: str
     transcribe_model: str
     sam_model: str
+    reasoning: str
     mock: bool
 
     @classmethod
@@ -35,6 +36,8 @@ class Settings:
             spark_model=os.getenv("SPARK_MODEL", "muse-spark-1.3"),
             transcribe_model=os.getenv("TRANSCRIBE_MODEL", "muse-voice-transcribe-1.0"),
             sam_model=os.getenv("SAM_MODEL", "sam-3.1"),
+            # Low effort keeps each agent step fast enough to guide someone.
+            reasoning=os.getenv("SPARK_REASONING", "minimal"),
             mock=mock,
         )
 
@@ -67,28 +70,33 @@ class MetaClient:
         content = [{"type": "input_text", "text": prompt}]
         for jpeg in images or []:
             content.append({"type": "input_image", "image_url": _data_url(jpeg)})
+        extra = {"reasoning": {"effort": self.settings.reasoning}} if self.settings.reasoning else {}
         response = self._openai.responses.create(
             model=self.settings.spark_model,
             instructions=instructions,
             input=[{"role": "user", "content": content}],
+            **extra,
         )
         return response.output_text
 
     def transcribe(self, wav: bytes) -> str:
-        """Speech-to-text for a short WAV clip.
-
-        TODO(day 2): confirm request fields and response shape against
-        /docs/api-reference/voice once credits are live.
-        """
+        """Speech-to-text for a short push-to-talk clip (16 kHz mono PCM WAV)."""
         if self.settings.mock:
             raise RuntimeError("transcribe() called in mock mode")
+        request = {
+            "model": self.settings.transcribe_model,
+            "audioEncoding": "WAV",
+            "mode": "PUSH_TO_TALK",
+            "languageBias": ["Turkish"],
+        }
         resp = httpx.post(
             f"{self.settings.base_url}/asr/transcribe",
-            headers={"Authorization": f"Bearer {self.settings.api_key}"},
-            data={"model": self.settings.transcribe_model, "language": "tr"},
-            files={"file": ("speech.wav", wav, "audio/wav")},
+            headers={"Authorization": f"Bearer {self.settings.api_key}", "Accept": "application/json"},
+            files={
+                "request": (None, json.dumps(request), "application/json"),
+                "audio": ("speech.wav", wav, "audio/wav"),
+            },
             timeout=30,
         )
         resp.raise_for_status()
-        body = resp.json()
-        return (body.get("text") or "").strip()
+        return (resp.json().get("transcript") or "").strip()

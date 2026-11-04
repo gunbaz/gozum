@@ -137,7 +137,9 @@ class Agent:
         done = False
         awaiting = False
 
-        if action == "locate" and box:
+        # The planner sometimes answers "done" as soon as it sees the target;
+        # the server, not the model, decides when the user has reached it.
+        if action in ("locate", "done") and box:
             box = list(geometry.clamp_box(box))
             direction, dist = geometry.clock_direction(box), geometry.distance(box)
             session.last_seen[target] = direction

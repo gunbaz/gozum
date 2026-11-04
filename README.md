@@ -29,6 +29,19 @@ Design choices:
 | Muse Voice Transcribe | spoken goals and answers (16 kHz WAV recorded in the browser) |
 | SAM 3.1 | *planned:* target segmentation overlay |
 
+## Measured latency
+
+Single calls from a home connection in Turkey (Nov 4, 2026), Muse Spark with `reasoning.effort = minimal`:
+
+| Step | Latency |
+|---|---|
+| Planner (frame → JSON action) | ~3.1 s (18.5 s at default effort) |
+| Full agent step incl. upload and direction math | ~4.5 s |
+| Crop-and-read step | ~5.1 s |
+| Speech-to-text (short clip) | ~2.7 s |
+
+This is why Gözüm uses a stop–scan–move loop rather than real-time warnings.
+
 ## Run locally
 
 ```bash
